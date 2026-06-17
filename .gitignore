@@ -1,0 +1,32 @@
+# Entorno virtual
+venv/
+
+# Variables de entorno
+.env
+
+# Credenciales Google
+credentials.json
+token.pickle
+
+# Fotos capturadas
+fotos/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Base de datos local
+*.db
+*.sqlite
