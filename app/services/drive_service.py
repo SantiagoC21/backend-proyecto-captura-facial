@@ -1,40 +1,49 @@
 import os
 import io
+import json
 import pickle
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from dotenv import load_dotenv
 
 load_dotenv()
 
-SCOPES          = ["https://www.googleapis.com/auth/drive"]
-CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "./credentials.json")
+SCOPES           = ["https://www.googleapis.com/auth/drive"]
 DRIVE_FOLDER_ID  = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
+CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "./credentials.json")
 TOKEN_PATH       = "./token.pickle"
 
 
 def _get_drive_service():
     creds = None
+    token_b64 = os.getenv("GOOGLE_TOKEN_BASE64")
 
-    # Cargar token guardado
-    if os.path.exists(TOKEN_PATH):
+    # Cargar token desde variable de entorno (Railway)
+    if token_b64:
+        import base64
+        token_bytes = base64.b64decode(token_b64)
+        creds = pickle.loads(token_bytes)
+
+    # Cargar token desde archivo (local)
+    elif os.path.exists(TOKEN_PATH):
         with open(TOKEN_PATH, "rb") as token:
             creds = pickle.load(token)
 
-    # Si no hay token o expiró, autenticar
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                CREDENTIALS_PATH, SCOPES
-            )
-            creds = flow.run_local_server(port=0)
+    # Refrescar si expiró
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
 
-        with open(TOKEN_PATH, "wb") as token:
-            pickle.dump(creds, token)
+        # Actualizar token guardado
+        if not token_b64:
+            with open(TOKEN_PATH, "wb") as token:
+                pickle.dump(creds, token)
+
+    if not creds:
+        raise Exception("No hay token de autenticación. Genera token.pickle localmente primero.")
 
     return build("drive", "v3", credentials=creds)
 
