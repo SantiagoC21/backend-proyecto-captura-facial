@@ -104,5 +104,6 @@ def procesar_imagen(imagen_bytes: bytes, nombre_persona: str, count: int) -> dic
         "ruta":               full_path,
         "rostro_bytes":       rostro_bytes,
         "filename":           filename,
+        "drive_link":         drive_link,
         "rostros_detectados": len(faces)
     }

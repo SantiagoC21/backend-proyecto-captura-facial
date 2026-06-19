@@ -19,25 +19,20 @@ TOKEN_PATH       = "./token.pickle"
 
 
 def _get_drive_service():
-    creds = None
+    creds     = None
     token_b64 = os.getenv("GOOGLE_TOKEN_BASE64")
 
-    # Cargar token desde variable de entorno (Railway)
     if token_b64:
         import base64
         token_bytes = base64.b64decode(token_b64)
         creds = pickle.loads(token_bytes)
 
-    # Cargar token desde archivo (local)
     elif os.path.exists(TOKEN_PATH):
         with open(TOKEN_PATH, "rb") as token:
             creds = pickle.load(token)
 
-    # Refrescar si expiró
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
-
-        # Actualizar token guardado
         if not token_b64:
             with open(TOKEN_PATH, "wb") as token:
                 pickle.dump(creds, token)
@@ -54,10 +49,7 @@ def _get_or_create_folder(service, nombre: str, parent_id: str) -> str:
         f"mimeType='application/vnd.google-apps.folder' and "
         f"'{parent_id}' in parents and trashed=false"
     )
-    results = service.files().list(
-        q=query,
-        fields="files(id, name)"
-    ).execute()
+    results  = service.files().list(q=query, fields="files(id, name)").execute()
     archivos = results.get("files", [])
 
     if archivos:
@@ -68,10 +60,7 @@ def _get_or_create_folder(service, nombre: str, parent_id: str) -> str:
         "mimeType": "application/vnd.google-apps.folder",
         "parents": [parent_id]
     }
-    folder = service.files().create(
-        body=metadata,
-        fields="id"
-    ).execute()
+    folder = service.files().create(body=metadata, fields="id").execute()
     return folder["id"]
 
 
@@ -99,3 +88,27 @@ def subir_foto_drive(imagen_bytes: bytes, nombre_persona: str, filename: str) ->
     link = f"https://drive.google.com/file/d/{archivo['id']}/view"
     print(f"✅ Foto subida a Drive: {link}")
     return link
+
+
+def eliminar_carpeta_drive(nombre_persona: str):
+    """Elimina la carpeta de la persona en Drive y todo su contenido."""
+    try:
+        service = _get_drive_service()
+        query   = (
+            f"name='{nombre_persona}' and "
+            f"mimeType='application/vnd.google-apps.folder' and "
+            f"'{DRIVE_FOLDER_ID}' in parents and trashed=false"
+        )
+        results  = service.files().list(q=query, fields="files(id, name)").execute()
+        archivos = results.get("files", [])
+
+        if not archivos:
+            print(f"⚠️ Carpeta no encontrada en Drive: {nombre_persona}")
+            return
+
+        for archivo in archivos:
+            service.files().delete(fileId=archivo["id"]).execute()
+            print(f"✅ Carpeta Drive eliminada: {nombre_persona}")
+
+    except Exception as e:
+        print(f"❌ Error eliminando carpeta Drive: {e}")
