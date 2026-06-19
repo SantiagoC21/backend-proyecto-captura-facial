@@ -9,7 +9,6 @@ from app.services.drive_service import subir_foto_drive
 load_dotenv()
 
 FOTOS_DIR    = os.getenv("FOTOS_DIR", "./fotos")
-FACE_SIZE    = 112
 CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 
 faceClassif = cv2.CascadeClassifier(CASCADE_PATH)
@@ -52,6 +51,15 @@ def _seleccionar_mejor_rostro(faces):
     return max(faces, key=lambda f: f[2] * f[3])
 
 
+def subir_drive_background(rostro_bytes: bytes, nombre_persona: str, filename: str):
+    try:
+        t0         = time.time()
+        drive_link = subir_foto_drive(rostro_bytes, nombre_persona, filename)
+        print(f"  ✅ Drive (bg):      {(time.time()-t0)*1000:.1f}ms — {drive_link}")
+    except Exception as e:
+        print(f"  ❌ Error Drive:     {e}")
+
+
 def procesar_imagen(imagen_bytes: bytes, nombre_persona: str, count: int) -> dict:
     t_total = time.time()
 
@@ -65,12 +73,12 @@ def procesar_imagen(imagen_bytes: bytes, nombre_persona: str, count: int) -> dic
         print("  ❌ No se pudo decodificar la imagen")
         raise ValueError("No se pudo decodificar la imagen recibida.")
 
-    # Resize
+    # Resize manteniendo proporción
     t0    = time.time()
-    frame = imutils.resize(frame, width=800)
+    frame = imutils.resize(frame, width=640)
     print(f"  ⏱ Resize:           {(time.time()-t0)*1000:.1f}ms")
 
-    # Detección de rostro
+    # Detectar rostro solo para verificar que hay una cara
     t0           = time.time()
     frame, faces = _detectar_rostro(frame)
     print(f"  ⏱ Detectar rostro:  {(time.time()-t0)*1000:.1f}ms — {len(faces)} rostros")
@@ -79,44 +87,22 @@ def procesar_imagen(imagen_bytes: bytes, nombre_persona: str, count: int) -> dic
         print(f"  ⏱ Total servicio:   {(time.time()-t_total)*1000:.1f}ms — sin rostro")
         return {"ruta": None, "rostros_detectados": 0}
 
-    # Recorte y CLAHE
-    t0         = time.time()
-    x, y, w, h = _seleccionar_mejor_rostro(faces)
-    margen     = int(max(w, h) * 0.20)
-    x1 = max(0, x - margen)
-    y1 = max(0, y - margen)
-    x2 = min(frame.shape[1], x + w + margen)
-    y2 = min(frame.shape[0], y + h + margen)
-    rostro = frame[y1:y2, x1:x2]
-    rostro = cv2.resize(rostro, (FACE_SIZE, FACE_SIZE), interpolation=cv2.INTER_LANCZOS4)
-
-    lab     = cv2.cvtColor(rostro, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    clahe   = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
-    l       = clahe.apply(l)
-    lab     = cv2.merge((l, a, b))
-    rostro  = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    print(f"  ⏱ Recorte+CLAHE:    {(time.time()-t0)*1000:.1f}ms")
-
-    # Guardar local
+    # Guardar imagen completa sin recortar
+    # ArcFace hará su propia detección y alineación internamente
     t0          = time.time()
     person_path = _get_person_path(nombre_persona)
     filename    = f"rostro_{count}.jpg"
     full_path   = os.path.join(person_path, filename)
-    _, buffer   = cv2.imencode(".jpg", rostro, [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+    _, buffer    = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
     rostro_bytes = buffer.tobytes()
-    cv2.imwrite(full_path, rostro, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    cv2.imwrite(full_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
     print(f"  ⏱ Guardar local:    {(time.time()-t0)*1000:.1f}ms")
-
-    # Subir a Drive
-    t0         = time.time()
-    drive_link = subir_foto_drive(rostro_bytes, nombre_persona, filename)
-    print(f"  ⏱ Subir Drive:      {(time.time()-t0)*1000:.1f}ms")
-
     print(f"  ⏱ Total servicio:   {(time.time()-t_total)*1000:.1f}ms")
 
     return {
         "ruta":               full_path,
-        "drive_link":         drive_link,
+        "rostro_bytes":       rostro_bytes,
+        "filename":           filename,
         "rostros_detectados": len(faces)
     }
