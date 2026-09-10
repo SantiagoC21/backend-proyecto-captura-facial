@@ -8,7 +8,9 @@ class Persona(Base):
     __tablename__ = "personas"
 
     id        = Column(Integer, primary_key=True, index=True)
-    nombre    = Column(String(100), nullable=False, unique=True)
+    codigo    = Column(String(20), nullable=False, unique=True, index=True)
+    nombre    = Column(String(100), nullable=False)
+    aula      = Column(String(20), nullable=False, index=True)
     creado_en = Column(DateTime, default=datetime.now)
 
     fotos = relationship("Foto", back_populates="persona", cascade="all, delete")

@@ -14,8 +14,8 @@ CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 faceClassif = cv2.CascadeClassifier(CASCADE_PATH)
 
 
-def _get_person_path(nombre_persona: str) -> str:
-    path = os.path.join(FOTOS_DIR, nombre_persona)
+def _get_person_path(aula: str, carpeta_persona: str) -> str:
+    path = os.path.join(FOTOS_DIR, aula, carpeta_persona)
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -51,16 +51,16 @@ def _seleccionar_mejor_rostro(faces):
     return max(faces, key=lambda f: f[2] * f[3])
 
 
-def subir_drive_background(rostro_bytes: bytes, nombre_persona: str, filename: str):
+def subir_drive_background(rostro_bytes: bytes, aula: str, carpeta_persona: str, filename: str):
     try:
         t0         = time.time()
-        drive_link = subir_foto_drive(rostro_bytes, nombre_persona, filename)
+        drive_link = subir_foto_drive(rostro_bytes, aula, carpeta_persona, filename)
         print(f"  ✅ Drive (bg):      {(time.time()-t0)*1000:.1f}ms — {drive_link}")
     except Exception as e:
         print(f"  ❌ Error Drive:     {e}")
 
 
-def procesar_imagen(imagen_bytes: bytes, nombre_persona: str, count: int) -> dict:
+def procesar_imagen(imagen_bytes: bytes, aula: str, carpeta_persona: str, count: int) -> dict:
     t_total = time.time()
 
     # Decodificar
@@ -90,7 +90,7 @@ def procesar_imagen(imagen_bytes: bytes, nombre_persona: str, count: int) -> dic
     # Guardar imagen completa sin recortar
     # ArcFace hará su propia detección y alineación internamente
     t0          = time.time()
-    person_path = _get_person_path(nombre_persona)
+    person_path = _get_person_path(aula, carpeta_persona)
     filename    = f"rostro_{count}.jpg"
     full_path   = os.path.join(person_path, filename)
 

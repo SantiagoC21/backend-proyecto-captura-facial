@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.routers import personas, capturas
 from concurrent.futures import ThreadPoolExecutor
@@ -9,6 +10,15 @@ app = FastAPI(
     title="Facial Dataset API",
     description="Backend para captura de rostros con OpenCV",
     version="1.0.0"
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Inicializar executor al arrancar

@@ -64,9 +64,15 @@ def _get_or_create_folder(service, nombre: str, parent_id: str) -> str:
     return folder["id"]
 
 
-def subir_foto_drive(imagen_bytes: bytes, nombre_persona: str, filename: str) -> str:
+def _get_or_create_persona_folder(service, aula: str, carpeta_persona: str) -> str:
+    """Crea/obtiene Aula/CarpetaPersona dentro de la raíz, en un solo lugar."""
+    aula_folder_id = _get_or_create_folder(service, aula, DRIVE_FOLDER_ID)
+    return _get_or_create_folder(service, carpeta_persona, aula_folder_id)
+
+
+def subir_foto_drive(imagen_bytes: bytes, aula: str, carpeta_persona: str, filename: str) -> str:
     service   = _get_drive_service()
-    folder_id = _get_or_create_folder(service, nombre_persona, DRIVE_FOLDER_ID)
+    folder_id = _get_or_create_persona_folder(service, aula, carpeta_persona)
 
     media = MediaIoBaseUpload(
         io.BytesIO(imagen_bytes),
@@ -86,29 +92,42 @@ def subir_foto_drive(imagen_bytes: bytes, nombre_persona: str, filename: str) ->
     ).execute()
 
     link = f"https://drive.google.com/file/d/{archivo['id']}/view"
-    print(f"✅ Foto subida a Drive: {link}")
+    print(f"✅ Foto subida a Drive: {aula}/{carpeta_persona} — {link}")
     return link
 
 
-def eliminar_carpeta_drive(nombre_persona: str):
-    """Elimina la carpeta de la persona en Drive y todo su contenido."""
+def eliminar_carpeta_drive(aula: str, carpeta_persona: str):
+    """Elimina la carpeta de la persona (dentro de su aula) en Drive y todo su contenido."""
     try:
         service = _get_drive_service()
-        query   = (
-            f"name='{nombre_persona}' and "
+
+        query_aula = (
+            f"name='{aula}' and "
             f"mimeType='application/vnd.google-apps.folder' and "
             f"'{DRIVE_FOLDER_ID}' in parents and trashed=false"
         )
-        results  = service.files().list(q=query, fields="files(id, name)").execute()
-        archivos = results.get("files", [])
+        aulas = service.files().list(q=query_aula, fields="files(id, name)").execute().get("files", [])
+
+        if not aulas:
+            print(f"⚠️ Carpeta de aula no encontrada en Drive: {aula}")
+            return
+
+        aula_folder_id = aulas[0]["id"]
+
+        query_persona = (
+            f"name='{carpeta_persona}' and "
+            f"mimeType='application/vnd.google-apps.folder' and "
+            f"'{aula_folder_id}' in parents and trashed=false"
+        )
+        archivos = service.files().list(q=query_persona, fields="files(id, name)").execute().get("files", [])
 
         if not archivos:
-            print(f"⚠️ Carpeta no encontrada en Drive: {nombre_persona}")
+            print(f"⚠️ Carpeta no encontrada en Drive: {aula}/{carpeta_persona}")
             return
 
         for archivo in archivos:
             service.files().delete(fileId=archivo["id"]).execute()
-            print(f"✅ Carpeta Drive eliminada: {nombre_persona}")
+            print(f"✅ Carpeta Drive eliminada: {aula}/{carpeta_persona}")
 
     except Exception as e:
         print(f"❌ Error eliminando carpeta Drive: {e}")

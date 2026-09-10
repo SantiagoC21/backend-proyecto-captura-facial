@@ -18,6 +18,11 @@ MAX_FOTOS = int(os.getenv("MAX_FOTOS_POR_PERSONA", 10))
 router = APIRouter(prefix="/capturas", tags=["Capturas"])
 
 
+def _carpeta_persona(persona: Persona) -> str:
+    """Nombre de carpeta único: codigo + nombre, sin espacios."""
+    return f"{persona.codigo}_{persona.nombre.replace(' ', '_')}"
+
+
 @router.post("/{persona_id}", response_model=CapturaResponse, status_code=201)
 async def capturar_foto(
     persona_id: int,
@@ -42,6 +47,8 @@ async def capturar_foto(
     imagen_bytes = await imagen.read()
     print(f"⏱ Leer imagen:        {(time.time()-t0)*1000:.1f}ms ({len(imagen_bytes)/1024:.1f}KB)")
 
+    carpeta_persona = _carpeta_persona(persona)
+
     t0        = time.time()
     loop      = asyncio.get_event_loop()
     executor  = request.app.state.executor
@@ -49,7 +56,8 @@ async def capturar_foto(
         executor,
         procesar_imagen,
         imagen_bytes,
-        persona.nombre,
+        persona.aula,
+        carpeta_persona,
         total_actual
     )
     print(f"⏱ Procesar imagen:    {(time.time()-t0)*1000:.1f}ms")
@@ -73,7 +81,8 @@ async def capturar_foto(
     background_tasks.add_task(
         subir_drive_background,
         resultado["rostro_bytes"],
-        persona.nombre,
+        persona.aula,
+        carpeta_persona,
         resultado["filename"]
     )
 
@@ -103,19 +112,17 @@ async def resetear_fotos(
 
     fotos = db.query(Foto).filter(Foto.persona_id == persona_id).all()
 
-    # Eliminar archivos locales
     for foto in fotos:
         if os.path.exists(foto.ruta_archivo):
             os.remove(foto.ruta_archivo)
 
-    # Eliminar registros en BD
     db.query(Foto).filter(Foto.persona_id == persona_id).delete()
     db.commit()
 
-    # Eliminar carpeta en Drive en segundo plano
     background_tasks.add_task(
         eliminar_carpeta_drive,
-        persona.nombre
+        persona.aula,
+        _carpeta_persona(persona)
     )
 
     return {"mensaje": f"Fotos de {persona.nombre} eliminadas correctamente"}
@@ -139,6 +146,7 @@ def listar_fotos(persona_id: int, db: Session = Depends(get_db)):
     fotos = db.query(Foto).filter(Foto.persona_id == persona_id).all()
     return {
         "persona": persona.nombre,
+        "aula": persona.aula,
         "total": len(fotos),
         "fotos": [{"id": f.id, "ruta": f.ruta_archivo, "fecha": f.capturado_en} for f in fotos]
     }
