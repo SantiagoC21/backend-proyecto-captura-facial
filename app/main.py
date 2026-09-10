@@ -15,12 +15,14 @@ app = FastAPI(
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://faceuni.up.railway.app",  # tu URL real del frontend
+        "http://localhost:5173",  # para seguir probando en local
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # Inicializar executor al arrancar
 app.state.executor = ThreadPoolExecutor(max_workers=8)
 
