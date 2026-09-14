@@ -1,7 +1,6 @@
 import os
 import io
 import json
-import base64
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2 import service_account
@@ -14,15 +13,15 @@ DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 
 
 def _get_drive_service():
-    sa_json_b64 = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_BASE64")
+    sa_json_str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
 
-    if not sa_json_b64:
+    if not sa_json_str:
         raise Exception(
-            "Falta GOOGLE_SERVICE_ACCOUNT_JSON_BASE64. "
-            "Genera la clave JSON de la cuenta de servicio y conviértela a base64."
+            "Falta GOOGLE_SERVICE_ACCOUNT_JSON. "
+            "Pega el contenido completo del JSON de la cuenta de servicio."
         )
 
-    sa_info = json.loads(base64.b64decode(sa_json_b64))
+    sa_info = json.loads(sa_json_str)
     creds = service_account.Credentials.from_service_account_info(sa_info, scopes=SCOPES)
 
     return build("drive", "v3", credentials=creds)
