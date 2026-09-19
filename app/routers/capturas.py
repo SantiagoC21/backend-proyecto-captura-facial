@@ -27,7 +27,6 @@ def _carpeta_persona(persona: Persona) -> str:
 async def capturar_foto(
     persona_id: int,
     request: Request,
-    background_tasks: BackgroundTasks,
     imagen: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -78,13 +77,16 @@ async def capturar_foto(
     db.refresh(foto)
     print(f"⏱ BD insertar:        {(time.time()-t0)*1000:.1f}ms")
 
-    background_tasks.add_task(
+    t0 = time.time()
+    await loop.run_in_executor(
+        executor,
         subir_drive_background,
         resultado["rostro_bytes"],
         persona.aula,
         carpeta_persona,
         resultado["filename"]
     )
+    print(f"⏱ Subir a Drive:      {(time.time()-t0)*1000:.1f}ms")
 
     nuevo_total = total_actual + 1
     print(f"⏱ TOTAL endpoint:     {(time.time()-t_total)*1000:.1f}ms")
