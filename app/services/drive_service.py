@@ -1,33 +1,41 @@
 import os
 import io
-import json
+import pickle
 import base64
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from dotenv import load_dotenv
 
 load_dotenv()
 
 SCOPES          = ["https://www.googleapis.com/auth/drive"]
 DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+TOKEN_PATH      = "./token.pickle"
 
 
 def _get_drive_service():
-    service_account_b64 = os.getenv("GOOGLE_SERVICE_ACCOUNT_BASE64")
+    creds     = None
+    token_b64 = os.getenv("GOOGLE_TOKEN_BASE64")
 
-    if not service_account_b64:
-        raise Exception("No está configurada la variable GOOGLE_SERVICE_ACCOUNT_BASE64.")
+    if token_b64:
+        token_bytes = base64.b64decode(token_b64)
+        creds = pickle.loads(token_bytes)
+    elif os.path.exists(TOKEN_PATH):
+        with open(TOKEN_PATH, "rb") as token:
+            creds = pickle.load(token)
 
-    info  = json.loads(base64.b64decode(service_account_b64))
-    creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        if not token_b64:
+            with open(TOKEN_PATH, "wb") as token:
+                pickle.dump(creds, token)
+
+    if not creds:
+        raise Exception("No hay token de autenticación. Genera token.pickle localmente primero.")
 
     return build("drive", "v3", credentials=creds)
-
-
-# Todo lo demás (_get_or_create_folder, _get_or_create_persona_folder,
-# subir_foto_drive, eliminar_carpeta_drive) queda exactamente igual,
-# no cambia nada — solo cambió _get_drive_service().
 
 
 def _get_or_create_folder(service, nombre: str, parent_id: str) -> str:
