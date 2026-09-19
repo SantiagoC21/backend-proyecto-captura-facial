@@ -2,6 +2,7 @@ import os
 import io
 import pickle
 import base64
+import threading
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
@@ -14,6 +15,7 @@ SCOPES          = ["https://www.googleapis.com/auth/drive"]
 DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 TOKEN_PATH      = "./token.pickle"
 
+_folder_lock = threading.Lock()
 
 def _get_drive_service():
     creds     = None
@@ -66,8 +68,9 @@ def _get_or_create_persona_folder(service, aula: str, carpeta_persona: str) -> s
 
 
 def subir_foto_drive(imagen_bytes: bytes, aula: str, carpeta_persona: str, filename: str) -> str:
-    service   = _get_drive_service()
-    folder_id = _get_or_create_persona_folder(service, aula, carpeta_persona)
+    service = _get_drive_service()
+    with _folder_lock:
+        folder_id = _get_or_create_persona_folder(service, aula, carpeta_persona)
 
     media = MediaIoBaseUpload(
         io.BytesIO(imagen_bytes),
