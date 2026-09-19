@@ -38,11 +38,6 @@ def _get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-# Todo lo demás (_get_or_create_folder, _get_or_create_persona_folder,
-# subir_foto_drive, eliminar_carpeta_drive) queda exactamente igual,
-# no cambia nada — solo cambió _get_drive_service().
-
-
 def _get_or_create_folder(service, nombre: str, parent_id: str) -> str:
     query = (
         f"name='{nombre}' and "
